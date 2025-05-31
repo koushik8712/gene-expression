@@ -3,5 +3,11 @@ gunicorn
 pandas
 matplotlib
 seaborn
+scipy
+numpy
+plotly
+openpyxl
+xlrd
+requests
 # Add other dependencies below
 # e.g. numpy, plotly, etc.
