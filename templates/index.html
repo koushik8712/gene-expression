@@ -5,12 +5,26 @@
     <title>Gene Expression Explorer</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <!-- Plotly.js CDN for interactive plots -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', sans-serif;
             /* Soft blue-violet gradient */
             background: linear-gradient(120deg, #e0e7ff 0%, #f9fafb 100%);
             min-height: 100vh;
+        }
+        .fade-in-up-anim {
+            opacity: 0;
+            transform: translateY(24px);
+        }
+        .plot-fade {
+            animation: plot-fade-in 0.7s cubic-bezier(.4,0,.2,1);
+        }
+        @keyframes plot-fade-in {
+            0% { opacity: 0; filter: blur(5px);}
+            60% { opacity: 1; filter: blur(2px);}
+            100% { opacity: 1; filter: blur(0);}
         }
     </style>
 </head>
@@ -23,19 +37,24 @@
     <h1 id="main-title" class="text-4xl font-bold text-center text-blue-700 mb-8">Gene Expression Explorer</h1>
 
     <div class="flex flex-col lg:flex-row justify-center gap-8">
-        <!-- Left Column: Form -->
         <div class="bg-white p-6 rounded-lg shadow-lg w-full lg:w-1/3">
             <form method="POST">
-                <div class="mb-4">
+                <div class="mb-4" style="position:relative;">
                     <label for="gene" class="block text-gray-700 font-semibold mb-2">Enter Gene Symbol</label>
                     <input type="text" name="gene" id="gene" class="w-full p-3 border border-gray-300 rounded-lg" 
-                           placeholder="e.g., TP53" required value="{{ gene if gene }}">
-                    <small class="text-gray-500">Try symbols like <code>TP53</code>, <code>BRCA1</code></small>
+                               placeholder="e.g., TP53, BRCA1" required value="{{ gene if gene }}" autocomplete="off">
+                    <!-- Autocomplete dropdown -->
+                    <div id="gene-autocomplete-list" style="position:absolute;z-index:1000;left:0;right:0;"></div>
+                    <small class="text-gray-500">Try symbols like <code>TP53</code>, <code>BRCA1</code> (comma-separated for multiple genes)</small>
                     {% if result and result.error %}
                     <div class="mt-2 p-4 rounded-lg bg-red-50 border border-red-200">
                         <p class="text-red-600">{{ result.error }}</p>
                         {% if result.suggestion %}
-                            <p class="mt-2 text-blue-700 text-sm font-semibold">{{ result.suggestion }}</p>
+                            <p class="mt-2 text-blue-700 text-sm font-semibold">
+                                {% set suggested_gene = result.suggestion.split(':')[-1].strip('?').strip() %}
+                                Did you mean:
+                                <a href="#" id="gene-suggestion-link" class="underline text-blue-600 hover:text-blue-800 font-bold">{{ suggested_gene }}</a>?
+                            </p>
                         {% endif %}
                     </div>
                     {% endif %}
@@ -59,7 +78,6 @@
                 <button type="submit" class="bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition">Analyze</button>
             </form>
 
-            <!-- Top Genes Table -->
             {% if top_genes %}
             <h2 class="mt-8 text-lg font-bold text-gray-700">Top Differentially Expressed Genes</h2>
             <table id="top-genes-table" class="w-full mt-4 text-sm text-left border">
@@ -84,44 +102,86 @@
             {% endif %}
         </div>
 
-        <!-- Right Column: Results + Plots -->
         <div class="w-full lg:w-1/2 flex flex-col gap-6">
             {% if result %}
-            <div id="results-card" class="results mt-6">
-                <h3 class="font-bold text-lg mb-2">Results for Gene: {{ result.gene }}</h3>
-                <p><b>Dataset:</b> {{ result.dataset }}</p>
-                <p><b>Healthy Avg:</b> <span id="healthy-avg">{{ result.healthy_avg }}</span></p>
-                <p><b>Disease Avg:</b> {{ result.disease_avg }}</p>
-                <p><b>Healthy Std Dev:</b> {{ result.healthy_std }}</p>
-                <p><b>Disease Std Dev:</b> {{ result.disease_std }}</p>
-                <p><b>Log2 Fold Change:</b> {{ result.log2fc }}</p>
-                <p><b>P-value:</b> {{ result.pval }}</p>
-            </div>
+                <div id="results-card" class="bg-white p-6 rounded-lg shadow-lg fade-in-up-anim">
+                    {% if result|length > 1 %}
+                    <h3 class="font-bold text-lg mb-2">Results for Genes</h3>
+                    <table class="w-full text-sm mt-2 mb-2 border">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-2">Gene</th>
+                                <th class="p-2">Healthy Avg</th>
+                                <th class="p-2">Disease Avg</th>
+                                <th class="p-2">Healthy Std Dev</th>
+                                <th class="p-2">Disease Std Dev</th>
+                                <th class="p-2">Log2FC</th>
+                                <th class="p-2">P-value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for r in result %}
+                            <tr>
+                                <td class="p-2 font-bold">{{ r.gene }}</td>
+                                <td class="p-2">{{ r.healthy_avg }}</td>
+                                <td class="p-2">{{ r.disease_avg }}</td>
+                                <td class="p-2">{{ r.healthy_std }}</td>
+                                <td class="p-2">{{ r.disease_std }}</td>
+                                <td class="p-2">{{ r.log2fc }}</td>
+                                <td class="p-2">{{ r.pval }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <h3 class="font-bold text-lg mb-2">Results for Gene: {{ result[0].gene }}</h3>
+                    <p><b>Dataset:</b> {{ result[0].dataset }}</p>
+                    <p><b>Healthy Avg:</b> <span id="healthy-avg">{{ result[0].healthy_avg }}</span></p>
+                    <p><b>Disease Avg:</b> {{ result[0].disease_avg }}</p>
+                    <p><b>Healthy Std Dev:</b> {{ result[0].healthy_std }}</p>
+                    <p><b>Disease Std Dev:</b> {{ result[0].disease_std }}</p>
+                    <p><b>Log2 Fold Change:</b> {{ result[0].log2fc }}</p>
+                    <p><b>P-value:</b> {{ result[0].pval }}</p>
+                    {% endif %}
+                </div>
             {% endif %}
 
             {% if plot_exists %}
-            <div class="plot-container mx-auto my-4">
-                <img id="plot-img" src="{{ url_for('static', filename='plot.png') }}" alt="Gene Expression Plot" style="max-width:100%; border-radius:12px; box-shadow:0 2px 12px rgba(42,82,152,0.10); background:#fff;">
+            <div class="plot-container mx-auto my-4 bg-white p-6 rounded-lg shadow-lg fade-in-up-anim" id="plot-container">
+                <!-- Interactive Plotly plot -->
+                <div id="plotly-div" style="width:100%;max-width:700px;margin:auto;display:block;"></div>
+                <div class="text-xs text-gray-500 text-center mt-1 mb-2">
+                    <span>Tip: Box-select to zoom. <b>Double-click</b> the plot to reset zoom.</span>
+                </div>
+                <!-- Static fallback image -->
+                <img id="plot-img" src="{{ url_for('static', filename='plot.png') }}?{{ cache_buster }}" alt="Gene Expression Plot" class="plot-fade gene-plot" style="max-width:100%; border-radius:12px; box-shadow:0 2px 12px rgba(42,82,152,0.10); background:#fff;">
+                <div class="mt-4 text-center">
+                    <a href="{{ url_for('static', filename='plot.png') }}" download="gene_expression_plot.png" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        Download Plot
+                    </a>
+                </div>
             </div>
             {% endif %}
 
             {% if heatmap_exists %}
-            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="bg-white p-6 rounded-lg shadow-lg text-center fade-in-up-anim">
                 <h3 class="text-xl font-semibold text-gray-700 mb-3">Top Genes Heatmap</h3>
                 <img src="{{ url_for('static', filename='heatmap.png') }}" alt="Heatmap" class="mx-auto max-w-full rounded-lg shadow">
             </div>
             {% endif %}
 
             {% if pie_exists %}
-            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="bg-white p-6 rounded-lg shadow-lg text-center fade-in-up-anim">
                 <h3 class="text-xl font-semibold text-gray-700 mb-3">Sample Class Distribution</h3>
                 <img src="{{ url_for('static', filename='pie.png') }}" alt="Class Distribution" class="mx-auto max-w-xs rounded-lg shadow">
             </div>
             {% endif %}
 
-            <!-- GO Terms Enrichment Section -->
             {% if go_terms and go_terms|length > 0 %}
-            <div class="bg-white p-4 rounded-lg shadow mt-4 mb-4">
+            <div class="bg-white p-6 rounded-lg shadow-lg fade-in-up-anim">
                 <h3 class="text-lg font-bold text-purple-700 mb-2">GO Enrichment (Top Biological Processes)</h3>
                 <ul class="list-disc ml-6">
                     {% for term in go_terms %}
@@ -136,28 +196,48 @@
             </div>
             {% endif %}
 
-            <!-- Gene Information Section -->
             {% if gene_info %}
-            <div class="bg-white p-4 rounded-lg shadow-lg mb-4 results">
-                <h3 class="text-lg font-bold text-blue-700 mb-2">Gene Information</h3>
-                <p><b>Symbol:</b> {{ gene_info.symbol }}</p>
-                {% if gene_info.name %}<p><b>Name:</b> {{ gene_info.name }}</p>{% endif %}
-                {% if gene_info.summary %}<p><b>Function:</b> {{ gene_info.summary }}</p>{% endif %}
-                {% if gene_info.chrom %}<p><b>Chromosome:</b> {{ gene_info.chrom }}</p>{% endif %}
-                {% if gene_info.location %}<p><b>Location:</b> {{ gene_info.location }}</p>{% endif %}
-                {% if gene_info.entrez %}<p><b>Entrez ID:</b> {{ gene_info.entrez }}</p>{% endif %}
-                {% if gene_info.uniprot %}<p><b>UniProt:</b> {{ gene_info.uniprot }}</p>{% endif %}
-                {% if gene_info.diseases and gene_info.diseases|length > 0 %}
-                    <div class="mt-2">
-                        <b>Associated Diseases:</b>
-                        <ul class="list-disc ml-6">
-                            {% for d in gene_info.diseases %}
-                                <li>{{ d.name }} (score: {{ d.score }})</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                {% endif %}
-            </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg fade-in-up-anim">
+                    <h3 class="text-lg font-bold text-blue-700 mb-2">Gene Information</h3>
+                    <table class="w-full text-sm mt-2 mb-2 border">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-2">Symbol</th>
+                                <th class="p-2">Name</th>
+                                <th class="p-2">Function</th>
+                                <th class="p-2">Chromosome</th>
+                                <th class="p-2">Location</th>
+                                <th class="p-2">Entrez ID</th>
+                                <th class="p-2">UniProt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for info in gene_info %}
+                            <tr>
+                                <td class="p-2 font-bold">{{ info.symbol }}</td>
+                                <td class="p-2">{{ info.name }}</td>
+                                <td class="p-2">{{ info.summary }}</td>
+                                <td class="p-2">{{ info.chrom }}</td>
+                                <td class="p-2">{{ info.location }}</td>
+                                <td class="p-2">{{ info.entrez }}</td>
+                                <td class="p-2">{{ info.uniprot }}</td>
+                            </tr>
+                            {% if info.diseases and info.diseases|length > 0 %}
+                            <tr>
+                                <td colspan="7" class="p-2">
+                                    <b>Associated Diseases:</b>
+                                    <ul class="list-disc ml-6">
+                                        {% for d in info.diseases %}
+                                            <li>{{ d.name }} (score: {{ d.score }})</li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             {% endif %}
         </div>
     </div>
@@ -267,6 +347,128 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById("loading-spinner").style.display = "flex";
         });
     }
+
+    // Animate fade-in-up for result blocks
+    document.querySelectorAll('.fade-in-up-anim').forEach(function(el, idx) {
+        el.style.opacity = 0;
+        el.style.transform = 'translateY(24px)';
+        setTimeout(function() {
+            el.style.transition = 'opacity 0.7s cubic-bezier(.4,0,.2,1), transform 0.7s cubic-bezier(.4,0,.2,1)';
+            el.style.opacity = 1;
+            el.style.transform = 'translateY(0)';
+        }, 120 + idx * 120);
+    });
+
+    // Animate plot image reload (fade out, then fade in)
+    const plotImg = document.getElementById('plot-img');
+    if (plotImg) {
+        plotImg.addEventListener('load', function() {
+            plotImg.classList.remove('plot-fade');
+            void plotImg.offsetWidth; // force reflow
+            plotImg.classList.add('plot-fade');
+        });
+    }
+
+    // --- Plotly interactive plot ---
+    {% if plot_exists and plotly_data and plotly_layout %}
+    try {
+        var plotlyData = {{ plotly_data|safe }};
+        var plotlyLayout = {{ plotly_layout|safe }};
+        Plotly.newPlot('plotly-div', plotlyData, plotlyLayout, {responsive: true, displayModeBar: true});
+
+        // Ensure double-click resets zoom (in case user disables default)
+        var plotDiv = document.getElementById('plotly-div');
+        plotDiv.on('plotly_doubleclick', function() {
+            Plotly.relayout(plotDiv, {
+                'xaxis.autorange': true,
+                'yaxis.autorange': true
+            });
+        });
+    } catch (e) {
+        document.getElementById('plotly-div').innerHTML = "<div class='text-red-600'>Interactive plot failed to load.</div>";
+    }
+    {% endif %}
+
+    // Handle gene suggestion click
+    var suggestionLink = document.getElementById('gene-suggestion-link');
+    if (suggestionLink) {
+        suggestionLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            var geneInput = document.getElementById('gene');
+            if (geneInput) {
+                geneInput.value = suggestionLink.textContent.trim();
+                // Optionally scroll to the input
+                geneInput.focus();
+                // Submit the form
+                var form = geneInput.form;
+                if (form) form.submit();
+            }
+        });
+    }
+
+    // --- Gene autocomplete ---
+    const geneInput = document.getElementById('gene');
+    const datasetSelect = document.getElementById('dataset');
+    const autocompleteList = document.getElementById('gene-autocomplete-list');
+    let lastAutocompleteQuery = "";
+    let autocompleteActive = false;
+
+    function closeAutocomplete() {
+        autocompleteList.innerHTML = "";
+        autocompleteList.style.display = "none";
+        autocompleteActive = false;
+    }
+
+    function showAutocomplete(suggestions) {
+        if (!suggestions.length) {
+            closeAutocomplete();
+            return;
+        }
+        autocompleteList.innerHTML = "";
+        suggestions.forEach(function(gene) {
+            const item = document.createElement("div");
+            item.textContent = gene;
+            item.className = "cursor-pointer px-3 py-2 bg-white border-b border-gray-200 hover:bg-blue-50";
+            item.addEventListener("mousedown", function(e) {
+                e.preventDefault();
+                geneInput.value = gene;
+                closeAutocomplete();
+                geneInput.focus();
+            });
+            autocompleteList.appendChild(item);
+        });
+        autocompleteList.style.display = "block";
+        autocompleteActive = true;
+    }
+
+    let autocompleteTimeout = null;
+    geneInput && geneInput.addEventListener("input", function(e) {
+        const query = geneInput.value.trim();
+        const dataset = datasetSelect ? datasetSelect.value : "";
+        if (!query || !dataset) {
+            closeAutocomplete();
+            return;
+        }
+        if (query === lastAutocompleteQuery) return;
+        lastAutocompleteQuery = query;
+        if (autocompleteTimeout) clearTimeout(autocompleteTimeout);
+        autocompleteTimeout = setTimeout(function() {
+            fetch(`/autocomplete_gene?dataset=${encodeURIComponent(dataset)}&q=${encodeURIComponent(query)}`)
+                .then(resp => resp.json())
+                .then(suggestions => showAutocomplete(suggestions))
+                .catch(() => closeAutocomplete());
+        }, 120);
+    });
+
+    // Hide autocomplete on blur/click outside
+    geneInput && geneInput.addEventListener("blur", function() {
+        setTimeout(closeAutocomplete, 120);
+    });
+
+    // Reset autocomplete when dataset changes
+    datasetSelect && datasetSelect.addEventListener("change", function() {
+        closeAutocomplete();
+    });
 });
 </script>
 </html>

@@ -1,0 +1,4 @@
+Flask
+gunicorn
+# Add other dependencies below
+# e.g. pandas, numpy, plotly, etc.
