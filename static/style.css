@@ -1,0 +1,143 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(120deg, #e0e7ff 0%, #f9fafb 100%);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 200px;
+    margin: 60px auto;
+    background: rgba(255,255,255,0.85); /* semi-transparent for background sync */
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    padding: 36px 30px 28px 30px;
+    backdrop-filter: blur(2px);
+}
+
+h1 {
+    text-align: center;
+    color: #2a5298;
+    margin-bottom: 28px;
+    text-shadow: 1px 2px 8px #fff, 0 1px 0 #b0bec5;
+}
+
+.gene-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.gene-form label {
+    font-weight: 500;
+    color: #23395d;
+    text-shadow: 0 1px 0 #fff;
+}
+
+.gene-form input[type="text"], .gene-form select {
+    padding: 9px 13px;
+    border-radius: 7px;
+    border: 1.5px solid #b0bec5;
+    font-size: 1rem;
+    background: rgba(255,255,255,0.92);
+    box-shadow: 0 1px 4px rgba(42,82,152,0.07);
+    transition: border 0.2s, box-shadow 0.2s;
+}
+
+.gene-form input[type="text"]:focus, .gene-form select:focus {
+    border: 2px solid #2a5298;
+    outline: none;
+    box-shadow: 0 0 0 2px #cfdef3;
+}
+
+.gene-form button {
+    background: linear-gradient(90deg, #2a5298, #1e3c72);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 11px 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(42,82,152,0.10);
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+button[type="submit"]:hover {
+    box-shadow: 0 0 0 4px #3b82f633, 0 2px 8px #3b82f655;
+    transform: translateY(-2px) scale(1.03);
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.gene-form button:hover {
+    background: linear-gradient(90deg, #1e3c72, #2a5298);
+    box-shadow: 0 4px 16px rgba(42,82,152,0.18);
+}
+
+.results {
+    background: rgba(255,255,255,0.92);
+    border-radius: 10px;
+    box-shadow: 0 1px 6px rgba(42,82,152,0.07);
+    padding: 18px 16px;
+    margin-top: 18px;
+    color: #23395d;
+    transition: box-shadow 0.3s, transform 0.3s, background 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.results:hover {
+    box-shadow: 0 0 24px 4px #38bdf8, 0 8px 32px rgba(42,82,152,0.18);
+    background: rgba(224,231,255,0.97);
+    transform: translateY(-4px) scale(1.025) rotate(-0.5deg);
+}
+
+.results:hover::before {
+    content: '';
+    position: absolute;
+    left: 10%;
+    top: 0;
+    width: 80%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        120deg,
+        #818cf8 0 2px,
+        transparent 2px 12px
+    );
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 1;
+    animation: dna-stripes 1.5s linear infinite;
+}
+    
+.bg-white {
+    box-shadow: 0 8px 32px rgba(42,82,152,0.10), 0 1.5px 6px rgba(42,82,152,0.07);
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.bg-white:hover, #results-card:hover {
+    box-shadow: 0 12px 36px rgba(42,82,152,0.18), 0 2px 8px rgba(42,82,152,0.15);
+    transform: scale(1.02);
+}
+
+.label-healthy {
+    color: #2563eb; /* blue-600 */
+    background: #e0e7ff;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-weight: 600;
+}
+.label-disease {
+    color: #dc2626; /* red-600 */
+    background: #fee2e2;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-weight: 600;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg);}
+    100% { transform: rotate(360deg);}
+}
