@@ -1,5 +1,6 @@
 Flask
 gunicorn
 pandas
+matplotlib
 # Add other dependencies below
 # e.g. numpy, plotly, etc.
